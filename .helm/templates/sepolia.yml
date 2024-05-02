@@ -1,0 +1,74 @@
+{{ if eq $.Values.env "dev" }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: defispring-sepolia
+  namespace: {{ $.Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: defispring-sepolia
+  template:
+    metadata:
+      labels:
+        app: defispring-sepolia
+      annotations:
+        rollme: {{ randAlphaNum 5 | quote }}
+    spec:
+      imagePullSecrets:
+        - name: dockerhub
+      containers:
+      - image: zkxteam/defispring:{{ .Values.commit_hash}}
+        imagePullPolicy: Always
+        name: defispring-sepolia
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 1000Mi
+      nodeSelector:
+        role: worker-spot
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: defispring-sepolia
+  namespace: {{ $.Release.Namespace }}
+spec:
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+  type: ClusterIP
+  selector:
+    app: defispring-sepolia
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: defispring-sepolia
+  namespace: {{ $.Release.Namespace }}
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - defispring-sepolia.k8s.ntwrkx.com
+    secretName: root-domain-certificate
+  rules:
+  - host: defispring-sepolia.k8s.ntwrkx.com
+    http:
+      paths:
+        - pathType: Prefix
+          path: "/"
+          backend:
+            service:
+              name: defispring-sepolia
+              port:
+                number: 80
+{{ end }}
